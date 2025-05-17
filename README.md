@@ -23,7 +23,7 @@
 - **Easy Navigation**: Simple, intuitive interface to explore the wiki
 - **Ask Feature**: Chat with your repository using RAG-powered AI to get accurate answers
 - **DeepResearch**: Multi-turn research process that thoroughly investigates complex topics
-- **Multiple Model Providers**: Support for Google Gemini, OpenAI, OpenRouter, and local Ollama models
+- **Multiple Model Providers**: Support for Google Gemini, OpenAI, Azure OpenAI, OpenRouter, and local Ollama models
 
 ## 🚀 Quick Start (Super Easy!)
 
@@ -170,6 +170,7 @@ DeepWiki now implements a flexible provider-based model selection system support
 
 - **Google**: Default `gemini-2.0-flash`, also supports `gemini-1.5-flash`, `gemini-1.0-pro`, etc.
 - **OpenAI**: Default `gpt-4o`, also supports `o4-mini`, etc.
+- **Azure OpenAI**: Connect your Azure deployments with `OPENAI_API_TYPE=azure`
 - **OpenRouter**: Access to multiple models via a unified API, including Claude, Llama, Mistral, etc.
 - **Ollama**: Support for locally running open-source models like `llama3`
 
@@ -243,6 +244,23 @@ The OpenAI Client's base_url configuration is designed primarily for enterprise 
 | `SERVER_BASE_URL` | Base URL for the API server (default: http://localhost:8001) | No |
 
 If you're not using ollama mode, you need to configure an OpenAI API key for embeddings. Other API keys are only required when configuring and using models from the corresponding providers.
+
+
+### Azure OpenAI Configuration
+
+Add these variables to your `.env` to use Azure OpenAI:
+
+```env
+OPENAI_API_TYPE=azure
+OPENAI_API_KEY=your_azure_key
+OPENAI_API_BASE=https://your-resource-name.openai.azure.com
+OPENAI_DEPLOYMENT=your_deployment_name
+OPENAI_API_VERSION=2024-02-15-preview
+```
+
+`OPENAI_API_BASE` should be your Azure endpoint, `OPENAI_DEPLOYMENT` is your deployment name, and `OPENAI_API_VERSION` is the API version.
+
+ 
 
 ### Docker Setup
 
