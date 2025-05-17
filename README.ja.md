@@ -23,7 +23,7 @@
 - **簡単なナビゲーション**: Wiki を探索するためのシンプルで直感的なインターフェース
 - **質問機能**: RAG 搭載 AI を使用してリポジトリとチャットし、正確な回答を得る
 - **詳細調査**: 複雑なトピックを徹底的に調査する多段階研究プロセス
-- **複数のモデルプロバイダー**: Google Gemini、OpenAI、OpenRouter、およびローカル Ollama モデルのサポート
+- **複数のモデルプロバイダー**: Google Gemini、OpenAI、Azure OpenAI、OpenRouter、およびローカル Ollama モデルのサポート
 
 ## 🚀 クイックスタート（超簡単！）
 
@@ -182,6 +182,20 @@ deepwiki/
 | `OPENROUTER_API_KEY`          | 代替モデルのための OpenRouter API キー                          | ✗    | OpenRouter モデルを使用する場合にのみ必須です                                                                 |
 | `PORT`                        | API サーバーのポート（デフォルト：8001）                        | ✗    | API とフロントエンドを同じマシンでホストする場合、`NEXT_PUBLIC_SERVER_BASE_URL`のポートを適宜変更してください |
 | `NEXT_PUBLIC_SERVER_BASE_URL` | API サーバーのベース URL（デフォルト：`http://localhost:8001`） | ✗    |                                                                                                               |
+### Azure OpenAI の設定
+
+Azure OpenAI を利用する場合は、次の変数を `.env` に追加してください:
+
+```env
+OPENAI_API_TYPE=azure
+OPENAI_API_KEY=your_azure_key
+OPENAI_API_BASE=https://your-resource-name.openai.azure.com
+OPENAI_DEPLOYMENT=your_deployment_name
+OPENAI_API_VERSION=2024-02-15-preview
+```
+
+`OPENAI_API_BASE` は Azure エンドポイント、`OPENAI_DEPLOYMENT` はモデルデプロイ名、`OPENAI_API_VERSION` は API バージョンです。
+
 
 ### 設定ファイル
 
@@ -299,6 +313,7 @@ DeepWikiでは、複数のLLMプロバイダーをサポートする柔軟なプ
 
 - **Google**: デフォルトは `gemini-2.0-flash`、また `gemini-1.5-flash`、`gemini-1.0-pro` などもサポート
 - **OpenAI**: デフォルトは `gpt-4o`、また `o4-mini` などもサポート
+- **Azure OpenAI**: `OPENAI_API_TYPE=azure` を設定して Azure デプロイメントを利用
 - **OpenRouter**: Claude、Llama、Mistralなど、統一APIを通じて複数のモデルにアクセス
 - **Ollama**: `llama3` などのローカルで実行するオープンソースモデルをサポート
 
