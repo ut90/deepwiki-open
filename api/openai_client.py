@@ -587,6 +587,15 @@ class OpenAIClient(ModelClient):
         return image_source
 
 
+class AzureOpenAIClient(OpenAIClient):
+    """OpenAI client defaults for Azure deployments."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs.setdefault("env_base_url_name", "AZURE_OPENAI_ENDPOINT")
+        kwargs.setdefault("env_api_key_name", "AZURE_OPENAI_KEY")
+        super().__init__(*args, **kwargs)
+
+
 # Example usage:
 if __name__ == "__main__":
     from adalflow.core import Generator
