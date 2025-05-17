@@ -2,43 +2,48 @@
 
 import os
 import base64
-from typing import (
-    Dict,
-    Sequence,
-    Optional,
-    List,
-    Any,
-    TypeVar,
-    Callable,
-    Generator,
-    Union,
-    Literal,
-)
 import re
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    TypeVar,
+    Union,
+)
 
 import logging
 import backoff
 
-# optional import
-from adalflow.utils.lazy_import import safe_import, OptionalPackages
 from openai.types.chat.chat_completion import Choice
-
-openai = safe_import(OptionalPackages.OPENAI.value[0], OptionalPackages.OPENAI.value[1])
-
-from openai import OpenAI, AsyncOpenAI, Stream
+from openai import (
+    AsyncAzureOpenAI,
+    AsyncOpenAI,
+    AzureOpenAI,
+    OpenAI,
+    Stream,
+)
 from openai import (
     APITimeoutError,
+    BadRequestError,
     InternalServerError,
     RateLimitError,
     UnprocessableEntityError,
-    BadRequestError,
 )
 from openai.types import (
     Completion,
     CreateEmbeddingResponse,
     Image,
 )
-from openai.types.chat import ChatCompletionChunk, ChatCompletion, ChatCompletionMessage
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+)
 
 from adalflow.core.model_client import ModelClient
 from adalflow.core.types import (
@@ -166,6 +171,7 @@ class OpenAIClient(ModelClient):
         base_url: Optional[str] = None,
         env_base_url_name: str = "OPENAI_API_BASE",
         env_api_key_name: str = "OPENAI_API_KEY",
+        env_api_type_name: str = "OPENAI_API_TYPE",
     ):
         r"""It is recommended to set the OPENAI_API_KEY environment variable instead of passing it as an argument.
 
@@ -178,7 +184,11 @@ class OpenAIClient(ModelClient):
         self._api_key = api_key
         self._env_api_key_name = env_api_key_name
         self._env_base_url_name = env_base_url_name
-        self.base_url = base_url or os.getenv(self._env_base_url_name, "https://api.openai.com/v1")
+        self._env_api_type_name = env_api_type_name
+        self._api_type = os.getenv(self._env_api_type_name, "openai").lower()
+        self.base_url = base_url or os.getenv(
+            self._env_base_url_name, "https://api.openai.com/v1"
+        )
         self.sync_client = self.init_sync_client()
         self.async_client = None  # only initialize if the async call is called
         self.chat_completion_parser = (
@@ -193,6 +203,13 @@ class OpenAIClient(ModelClient):
             raise ValueError(
                 f"Environment variable {self._env_api_key_name} must be set"
             )
+        if self._api_type == "azure":
+            return AzureOpenAI(
+                api_key=api_key,
+                azure_endpoint=self.base_url,
+                azure_deployment=os.getenv("OPENAI_DEPLOYMENT"),
+                api_version=os.getenv("OPENAI_API_VERSION"),
+            )
         return OpenAI(api_key=api_key, base_url=self.base_url)
 
     def init_async_client(self):
@@ -200,6 +217,13 @@ class OpenAIClient(ModelClient):
         if not api_key:
             raise ValueError(
                 f"Environment variable {self._env_api_key_name} must be set"
+            )
+        if self._api_type == "azure":
+            return AsyncAzureOpenAI(
+                api_key=api_key,
+                azure_endpoint=self.base_url,
+                azure_deployment=os.getenv("OPENAI_DEPLOYMENT"),
+                api_version=os.getenv("OPENAI_API_VERSION"),
             )
         return AsyncOpenAI(api_key=api_key, base_url=self.base_url)
 
@@ -240,7 +264,6 @@ class OpenAIClient(ModelClient):
         self,
         completion: Union[ChatCompletion, Generator[ChatCompletionChunk, None, None]],
     ) -> CompletionUsage:
-
         try:
             usage: CompletionUsage = CompletionUsage(
                 completion_tokens=completion.usage.completion_tokens,
@@ -413,6 +436,13 @@ class OpenAIClient(ModelClient):
         kwargs is the combined input and model_kwargs.  Support streaming call.
         """
         log.info(f"api_kwargs: {api_kwargs}")
+        if (
+            self._api_type == "azure"
+            and "deployment_id" not in api_kwargs
+            and "model" in api_kwargs
+        ):
+            api_kwargs = api_kwargs.copy()
+            api_kwargs["deployment_id"] = api_kwargs.pop("model")
         self._api_kwargs = api_kwargs
         if model_type == ModelType.EMBEDDER:
             return self.sync_client.embeddings.create(**api_kwargs)
@@ -426,10 +456,12 @@ class OpenAIClient(ModelClient):
                 # Make a copy of api_kwargs to avoid modifying the original
                 streaming_kwargs = api_kwargs.copy()
                 streaming_kwargs["stream"] = True
-                
+
                 # Get streaming response
-                stream_response = self.sync_client.chat.completions.create(**streaming_kwargs)
-                
+                stream_response = self.sync_client.chat.completions.create(
+                    **streaming_kwargs
+                )
+
                 # Accumulate all content from the stream
                 accumulated_content = ""
                 id = ""
@@ -448,15 +480,19 @@ class OpenAIClient(ModelClient):
                                 accumulated_content += text or ""
                 # Return the mock completion object that will be processed by the chat_completion_parser
                 return ChatCompletion(
-                    id = id,
+                    id=id,
                     model=model,
                     created=created,
                     object="chat.completion",
-                    choices=[Choice(
-                        index=0,
-                        finish_reason="stop",
-                        message=ChatCompletionMessage(content=accumulated_content, role="assistant")
-                    )]
+                    choices=[
+                        Choice(
+                            index=0,
+                            finish_reason="stop",
+                            message=ChatCompletionMessage(
+                                content=accumulated_content, role="assistant"
+                            ),
+                        )
+                    ],
                 )
         elif model_type == ModelType.IMAGE_GENERATION:
             # Determine which image API to call based on the presence of image/mask
@@ -492,6 +528,13 @@ class OpenAIClient(ModelClient):
         kwargs is the combined input and model_kwargs
         """
         # store the api kwargs in the client
+        if (
+            self._api_type == "azure"
+            and "deployment_id" not in api_kwargs
+            and "model" in api_kwargs
+        ):
+            api_kwargs = api_kwargs.copy()
+            api_kwargs["deployment_id"] = api_kwargs.pop("model")
         self._api_kwargs = api_kwargs
         if self.async_client is None:
             self.async_client = self.init_async_client()
