@@ -6,7 +6,7 @@ from typing import List
 
 logger = logging.getLogger(__name__)
 
-from api.openai_client import OpenAIClient
+from api.openai_client import OpenAIClient, AzureOpenAIClient
 from api.openrouter_client import OpenRouterClient
 from adalflow import GoogleGenAIClient, OllamaClient
 
@@ -30,6 +30,7 @@ CONFIG_DIR = os.environ.get('DEEPWIKI_CONFIG_DIR', None)
 CLIENT_CLASSES = {
     "GoogleGenAIClient": GoogleGenAIClient,
     "OpenAIClient": OpenAIClient,
+    "AzureOpenAIClient": AzureOpenAIClient,
     "OpenRouterClient": OpenRouterClient,
     "OllamaClient": OllamaClient
 }
@@ -67,10 +68,11 @@ def load_generator_config():
             if provider_config.get("client_class") in CLIENT_CLASSES:
                 provider_config["model_client"] = CLIENT_CLASSES[provider_config["client_class"]]
             # Fall back to default mapping based on provider_id
-            elif provider_id in ["google", "openai", "openrouter", "ollama"]:
+            elif provider_id in ["google", "openai", "openrouter", "ollama", "azure"]:
                 default_map = {
                     "google": GoogleGenAIClient,
                     "openai": OpenAIClient,
+                    "azure": AzureOpenAIClient,
                     "openrouter": OpenRouterClient,
                     "ollama": OllamaClient
                 }
@@ -168,7 +170,7 @@ def get_model_config(provider="google", model=None):
     Get configuration for the specified provider and model
 
     Parameters:
-        provider (str): Model provider ('google', 'openai', 'openrouter', 'ollama')
+        provider (str): Model provider ('google', 'openai', 'openrouter', 'ollama', 'azure')
         model (str): Model name, or None to use default model
 
     Returns:
